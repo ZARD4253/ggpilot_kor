@@ -1,32 +1,65 @@
-name: Run main.py and Upload Result
+name: Run GGEN Crawler Pipeline
 
 on:
-  workflow_dispatch:   # 수동 실행
+  workflow_dispatch:  # 수동 실행 가능
+  schedule:
+    - cron: '0 9 * * 1'  # 매주 월요일 오전 9시
 
 jobs:
-  run-script:
+  run-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout 코드 가져오기
-        uses: actions/checkout@v4   # ⭐ v4로 업데이트 권장 (필수는 아님)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Python 설정
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: 의존성 설치
+      - name: Install system dependencies (Chrome, etc.)
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt  # requirements.txt가 있다면
+          sudo apt-get update
+          sudo apt-get install -y wget unzip xvfb libxi6 libgconf-2-4
 
-      - name: main.py 실행
-        run: python main.py
+      - name: Install Chrome & ChromeDriver
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          
+          CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          CHROMEDRIVER_VERSION=$CHROME_VERSION
+          echo "Installing ChromeDriver version: $CHROMEDRIVER_VERSION"
+          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
+          sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
 
-      - name: 생성된 파일 아티팩트로 업로드
-        # ✅ v3 → v4로 변경! ✅
-        uses: actions/upload-artifact@v4   # 👈 이 줄만 수정!
+      - name: Install Python dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "⚠️ requirements.txt not found!"
+            exit 1
+          fi
+
+      - name: Run main.py (with Xvfb for headless GUI)
+        run: |
+          xvfb-run -a python main.py
+
+      - name: Upload output files
+        uses: actions/upload-artifact@v4
         with:
-          name: generated-files
-          path: output.txt   # 생성된 파일 경로
+          name: pipeline-results
+          path: |
+            *.json
+            *.js
+            *.xlsx
+            *.csv
+            data/
+            output/
+            logs/
+          if-no-files-found: warn
