@@ -1,20 +1,20 @@
 name: Run main.py and Upload Result
 
 on:
-  workflow_dispatch:  # ⭐ 수동 실행 전용! (GitHub 웹에서 버튼 클릭으로 실행)
+  workflow_dispatch:   # 수동 실행
 
 jobs:
   run-script:
-    runs-on: ubuntu-latest  # 리눅스 환경에서 실행
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout 코드 가져오기
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # ⭐ v4로 업데이트 권장 (필수는 아님)
 
       - name: Python 설정
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'  # 사용할 파이썬 버전
+          python-version: '3.10'
 
       - name: 의존성 설치
         run: |
@@ -22,10 +22,11 @@ jobs:
           pip install -r requirements.txt  # requirements.txt가 있다면
 
       - name: main.py 실행
-        run: python main.py   # 스크립트 실행 → output.txt 생성
+        run: python main.py
 
       - name: 생성된 파일 아티팩트로 업로드
-        uses: actions/upload-artifact@v3
+        # ✅ v3 → v4로 변경! ✅
+        uses: actions/upload-artifact@v4   # 👈 이 줄만 수정!
         with:
-          name: generated-files   # 아티팩트 이름
-          path: output.txt        # 업로드할 파일 경로 (여러 개면 `path: ./results/`)
+          name: generated-files
+          path: output.txt   # 생성된 파일 경로
